@@ -79,6 +79,14 @@ on:
         required: false
         type: string
         default: ''
+      Patchrepair: 
+        description: '修复0宽字符提权(自行选择是否开启)(1开启/0关闭)'
+        required: false
+        type: choice
+        default: '1'
+        options:
+          - '0'
+          - '1'
 
 jobs:
   build:
