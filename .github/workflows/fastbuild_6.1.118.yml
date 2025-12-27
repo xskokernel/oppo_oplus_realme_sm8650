@@ -78,6 +78,11 @@ on:
         required: false
         type: string
         default: ''
+      Patchrepair: 
+        description: '修复0宽字符提权(自行选择是否开启)(1开启/0关闭)'
+        required: true
+        type: boolean
+        default: 'true'
 
 jobs:
   build:
@@ -557,7 +562,16 @@ jobs:
           sed -i 's/selinuxfs.o //g' "./selinux/Makefile"
           sed -i 's/hooks.o //g' "./selinux/Makefile"
           cat "./baseband-guard/sepatch.txt" >> "./selinux/Makefile"
-
+      - name: 修复0宽字符提权-补丁
+        if: inputs.Patchrepair
+        run: |
+          echo "正在修复0宽字符提权的漏洞"
+          cd kernel_workspace
+          git clone https://github.com/xskokernel/Unicode_bypass_Fix.git
+          cp -r Unicode_bypass_Fix/unicode_bypass_fix_5.10-6.1.patch common
+          cd common
+          patch -p1 < unicode_bypass_fix_5.10-6.1.patch
+        
       - name: 添加制作名称
         run: |
           cd kernel_workspace
