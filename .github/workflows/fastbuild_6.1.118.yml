@@ -640,7 +640,7 @@ jobs:
           echo "正在修复0宽字符提权的漏洞"
           cd kernel_workspace
           git clone https://github.com/xskokernel/Unicode_bypass_Fix.git
-          cp -r Unicode_bypass_Fix/unicode_bypass_fix_6.12.patch common
+          cp -r Unicode_bypass_Fix/unicode-bypass_fix_5.10-6.12通用.patch common
           cd common
           patch -p1 < unicode-bypass_fix_5.10-6.12通用.patch
           
