@@ -642,7 +642,7 @@ jobs:
           git clone https://github.com/xskokernel/Unicode_bypass_Fix.git
           cp -r Unicode_bypass_Fix/unicode_bypass_fix_6.12.patch common
           cd common
-          patch -p1 < unicode_bypass_fix_6.12.patch
+          patch -p1 < unicode-bypass_fix_5.10-6.12通用.patch
           
       - name: 添加制作名称
         run: |
