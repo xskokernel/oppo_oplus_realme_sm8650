@@ -84,6 +84,11 @@ on:
         required: false
         type: string
         default: ''
+      Patchrepair: 
+        description: '修复0宽字符提权(自行选择是否开启)'
+        required: true
+        type: boolean
+        default: 'true'
 
 jobs:
   build:
@@ -560,7 +565,16 @@ jobs:
           cd ./common
           curl -sSL https://github.com/cctv18/Baseband-guard/raw/master/setup.sh | bash
           sed -i '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ { /baseband_guard/! s/selinux/selinux,baseband_guard/ } }' security/Kconfig
-
+      - name: 修复0宽字符提权-补丁
+        if: inputs.Patchrepair
+        run: |
+          echo "正在修复0宽字符提权的漏洞"
+          cd kernel_workspace
+          git clone https://github.com/xskokernel/Unicode_bypass_Fix.git
+          cp -r Unicode_bypass_Fix/unicode-bypass_fix_5.10-6.12通用.patch common
+          cd common
+          patch -p1 < unicode-bypass_fix_5.10-6.12通用.patch
+          
       - name: 添加制作名称
         run: |
           cd kernel_workspace
