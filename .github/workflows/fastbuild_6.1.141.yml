@@ -1,12 +1,12 @@
-name: 6.1.118 欧加真OKI内核快速构建
+name: 6.1.141 欧加真OKI内核快速构建
 
 env:
   TZ: Asia/Shanghai
   ANDROID_VERSION: 'android14'
   KERNEL_VERSION: '6.1'
-  SUB_VERSION: '118'
+  SUB_VERSION: '141'
   KERNEL_NAME: 'android14-11-o-gca13bffobf09'
-  CCACHE_KEY: ccache-ecsv2-6.1.118
+  CCACHE_KEY: ccache-ecsv2-6.1.141
 
 on:
   workflow_dispatch:
@@ -90,11 +90,6 @@ on:
         required: false
         type: string
         default: ''
-      Patchrepair: 
-        description: '修复0宽字符提权(自行选择是否开启)'
-        required: true
-        type: boolean
-        default: 'true'
 
 jobs:
   build:
@@ -130,9 +125,9 @@ jobs:
           rm -f ./ccache &
           
           echo "正在克隆源码仓库..."
-          aria2c -s16 -x16 -k1M https://github.com/cctv18/android_kernel_common_oneplus_sm8650/archive/refs/heads/oneplus/sm8650_b_16.0.0_oneplus12.zip -o common.zip && 
+          aria2c -s16 -x16 -k1M https://github.com/cctv18/android_kernel_common_oneplus_sm8650/archive/refs/heads/oneplus/sm8650_b_16.0.0_oneplus12_6.1.141.zip -o common.zip && 
           unzip -q common.zip && 
-          mv "android_kernel_common_oneplus_sm8650-oneplus-sm8650_b_16.0.0_oneplus12" common &&
+          mv "android_kernel_common_oneplus_sm8650-oneplus-sm8650_b_16.0.0_oneplus12_6.1.141" common &&
           rm -rf common.zip &
           
           echo "正在克隆llvm-Clang20工具链..." &&
@@ -533,17 +528,7 @@ jobs:
           cd ./common
           curl -sSL https://github.com/cctv18/Baseband-guard/raw/master/setup.sh | bash
           sed -i '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ { /baseband_guard/! s/selinux/selinux,baseband_guard/ } }' security/Kconfig
-          
-      - name: 修复0宽字符提权-补丁
-        if: inputs.Patchrepair
-        run: |
-          echo "正在修复0宽字符提权的漏洞"
-          cd kernel_workspace
-          git clone https://github.com/xskokernel/Unicode_bypass_Fix.git
-          cp -r Unicode_bypass_Fix/unicode-bypass_fix_5.10-6.12通用.patch common
-          cd common
-          patch -p1 < unicode-bypass_fix_5.10-6.12通用.patch
-          
+
       - name: 添加制作名称
         run: |
           cd kernel_workspace
