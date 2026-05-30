@@ -25,6 +25,8 @@ read -p "是否启用网络功能增强优化配置？(y/n，默认：y): " APPL
 APPLY_BETTERNET=${APPLY_BETTERNET:-y}
 read -p "是否添加 BBR 等一系列拥塞控制算法？(y添加/n禁用/d默认，默认：n): " APPLY_BBR
 APPLY_BBR=${APPLY_BBR:-n}
+read -p "是否添加 Droidspaces 容器支持？(n禁用/s标准/e扩展，默认：n): " APPLY_DROIDSPACES
+APPLY_DROIDSPACES=${APPLY_DROIDSPACES:-n}
 read -p "是否启用三星SSG IO调度器？(y/n，默认：y): " APPLY_SSG
 APPLY_SSG=${APPLY_SSG:-y}
 read -p "是否启用Re-Kernel？(y/n，默认：n): " APPLY_REKERNEL
@@ -63,6 +65,7 @@ echo "应用 lz4&zstd 补丁: $APPLY_LZ4"
 echo "应用 lz4kd 补丁: $APPLY_LZ4KD"
 echo "应用网络功能增强优化配置: $APPLY_BETTERNET"
 echo "应用 BBR 等算法: $APPLY_BBR"
+echo "应用 Droidspaces 容器支持: $APPLY_DROIDSPACES"
 echo "启用三星SSG IO调度器: $APPLY_SSG"
 echo "启用Re-Kernel: $APPLY_REKERNEL"
 echo "启用内核级基带保护: $APPLY_BBG"
@@ -116,54 +119,8 @@ for f in ./common/scripts/setlocalversion; do
 done
 
 # ===== 拉取 KSU 并设置版本号 =====
-if [[ "$KSU_BRANCH" == "y" || "$KSU_BRANCH" == "Y" ]]; then
-  echo ">>> 拉取 SukiSU-Ultra 并设置版本..."
-  curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/main/kernel/setup.sh" | bash -s builtin
-  cd KernelSU
-  GIT_COMMIT_HASH=$(git rev-parse --short=8 HEAD)
-  echo "当前提交哈希: $GIT_COMMIT_HASH"
-  echo ">>> 正在获取上游 API 版本信息..."
-  for i in {1..3}; do
-      KSU_API_VERSION=$(curl -s "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/builtin/kernel/Kbuild" | \
-          grep -m1 "KSU_VERSION_API :=" | \
-          awk -F'= ' '{print $2}' | \
-          tr -d '[:space:]')
-      if [ -n "$KSU_API_VERSION" ]; then
-          echo "成功获取 API 版本: $KSU_API_VERSION"
-          break
-      else
-          echo "获取失败，重试中 ($i/3)..."
-          sleep 1
-      fi
-  done
-  if [ -z "$KSU_API_VERSION" ]; then
-      echo -e "无法获取 API 版本，使用默认值 3.1.7..."
-      KSU_API_VERSION="3.1.7"
-  fi
-  export KSU_API_VERSION=$KSU_API_VERSION
-
-  VERSION_DEFINITIONS=$'define get_ksu_version_full\nv\\$1-'"$GIT_COMMIT_HASH"$'@cctv18\nendef\n\nKSU_VERSION_API := '"$KSU_API_VERSION"$'\nKSU_VERSION_FULL := v'"$KSU_API_VERSION"$'-'"$GIT_COMMIT_HASH"$'@cctv18'
-
-  echo ">>> 正在修改 kernel/Kbuild 文件..."
-  sed -i '/define get_ksu_version_full/,/endef/d' kernel/Kbuild
-  sed -i '/KSU_VERSION_API :=/d' kernel/Kbuild
-  sed -i '/KSU_VERSION_FULL :=/d' kernel/Kbuild
-  awk -v def="$VERSION_DEFINITIONS" '
-      /REPO_OWNER :=/ {print; print def; inserted=1; next}
-      1
-      END {if (!inserted) print def}
-  ' kernel/Kbuild > kernel/Kbuild.tmp && mv kernel/Kbuild.tmp kernel/Kbuild
-
-  KSU_VERSION_CODE=$(expr $(git rev-list --count main 2>/dev/null) + 37185 2>/dev/null || echo 114514)
-  echo ">>> 修改完成！验证结果："
-  echo "------------------------------------------------"
-  grep -A10 "REPO_OWNER" kernel/Kbuild | head -n 10
-  echo "------------------------------------------------"
-  grep "KSU_VERSION_FULL" kernel/Kbuild
-  echo ">>> 最终版本字符串: v${KSU_API_VERSION}-${GIT_COMMIT_HASH}@cctv18"
-  echo ">>> Version Code: ${KSU_VERSION_CODE}"
-elif [[ "$KSU_BRANCH" == "r" || "$KSU_BRANCH" == "R" ]]; then
-  echo ">>> 拉取 ReSukiSU 并设置版本..."
+if [[ $KSU_BRANCH == [yYrR] ]]; then
+  echo ">>> 拉取 ReSukiSU 并设置版本（由于SukiSU长期未维护无法正常编译，且ReSukiSU兼容sukisu管理器，故SukiSU源码仓库已重定向为resukisu）..."
   curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s main
   echo 'CONFIG_KSU_FULL_NAME_FORMAT="%TAG_NAME%-%COMMIT_SHA%@cctv18"' >> ./common/arch/arm64/configs/gki_defconfig
 elif [[ "$KSU_BRANCH" == "n" || "$KSU_BRANCH" == "N" ]]; then
@@ -349,6 +306,49 @@ if [[ "$APPLY_BBR" == "y" || "$APPLY_BBR" == "Y" || "$APPLY_BBR" == "d" || "$APP
   fi
 fi
 
+# ===== 启用 Droidspaces 容器支持 =====
+if [[ "$APPLY_DROIDSPACES" == [sSeE] ]]; then
+  echo ">>> 正在添加 Droidspaces 容器支持..."
+  # 开启 Droidspaces 容器所需内核支持
+  echo "CONFIG_PID_NS=y" >> "$DEFCONFIG_FILE"
+  echo "CONFIG_IPC_NS=y" >> "$DEFCONFIG_FILE"
+  echo "CONFIG_SYSVIPC=y" >> "$DEFCONFIG_FILE"
+  echo "CONFIG_DEVTMPFS=y" >> "$DEFCONFIG_FILE"
+  echo "CONFIG_NAMESPACES=y" >> "$DEFCONFIG_FILE"
+  echo "CONFIG_POSIX_MQUEUE=y" >> "$DEFCONFIG_FILE"
+  echo "CONFIG_NETFILTER_XT_MATCH_ADDRTYPE=y" >> "$DEFCONFIG_FILE"
+  echo "CONFIG_NETFILTER_XT_TARGET_LOG=y" >> "$DEFCONFIG_FILE"
+  echo "CONFIG_NETFILTER_XT_MATCH_RECENT=y" >> "$DEFCONFIG_FILE"
+  # 开启 NTSync
+  echo "CONFIG_NTSYNC=y" >> "$DEFCONFIG_FILE"
+  cd common
+  # 应用 Droidspaces 容器必须补丁
+  wget https://github.com/cctv18/oppo_oplus_realme_sm8650/raw/refs/heads/main/droidspaces_patch/fix_sysvipc_kabi_6_7_8.patch
+  patch -p1 -F 3 < fix_sysvipc_kabi_6_7_8.patch || true
+  # 修补 oplus_bsp_midas 行为，避免开机崩溃
+  wget https://github.com/cctv18/oppo_oplus_realme_sm8650/raw/refs/heads/main/droidspaces_patch/fix_oplus_bsp_midas.patch
+  patch -p1 -F 3 < fix_oplus_bsp_midas.patch || true
+  # 应用 NTSync 补丁
+  wget https://github.com/cctv18/oppo_oplus_realme_sm8650/raw/refs/heads/main/droidspaces_patch/ntsync_base.patch
+  wget https://github.com/cctv18/oppo_oplus_realme_sm8650/raw/refs/heads/main/droidspaces_patch/ntsync_compat_android14-6.1.patch
+  patch -p1 -F 3 < ntsync_base.patch || true
+  patch -p1 -F 3 < ntsync_compat_android14-6.1.patch || true
+  cd ..
+  if [[ "$APPLY_DROIDSPACES" == [eE] ]]; then
+    echo "正在启用容器环境扩展支持..."
+    # 开启虚拟 HCI 设备支持
+    echo "CONFIG_BT_HCIVHCI=y" >> "$DEFCONFIG_FILE"
+    # 开启 systemd-coredump 支持
+    echo "CONFIG_STATIC_USERMODEHELPER=n" >> "$DEFCONFIG_FILE"
+    # 添加 Lindroid EVDI DRM 驱动
+    echo "CONFIG_DRM_LINDROID_EVDI=y" >> "$DEFCONFIG_FILE"
+    cd common
+    wget https://github.com/cctv18/oppo_oplus_realme_sm8650/raw/refs/heads/main/droidspaces_patch/evdi_drm.patch
+    patch -p1 -F 3 < evdi_drm.patch || true
+    cd ..
+  fi
+fi
+
 # ===== 启用三星SSG IO调度器 =====
 if [[ "$APPLY_SSG" == "y" || "$APPLY_SSG" == "Y" ]]; then
   echo ">>> 正在启用三星SSG IO调度器..."
@@ -447,6 +447,9 @@ if [[ "$USE_PATCH_LINUX" == [bBkK] ]]; then
 fi
 if [[ "$APPLY_BBR" == "y" || "$APPLY_BBR" == "Y" ]]; then
   ZIP_NAME="${ZIP_NAME}-bbr"
+fi
+if [[ "$APPLY_DROIDSPACES" == [sSeE] ]]; then
+  ZIP_NAME="${ZIP_NAME}-dss"
 fi
 if [[ "$APPLY_SSG" == "y" || "$APPLY_SSG" == "Y" ]]; then
   ZIP_NAME="${ZIP_NAME}-ssg"
